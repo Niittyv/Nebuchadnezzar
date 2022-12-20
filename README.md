@@ -1,3 +1,2 @@
 # Nebuchadnezzar
--JPY pair lot size calculation not working!
--MeanReversion not implemented.
+Split Trendfollowing and MeanReversion in two different Expert advisors.
