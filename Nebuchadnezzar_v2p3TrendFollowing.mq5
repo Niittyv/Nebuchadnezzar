@@ -43,6 +43,7 @@ double       StartingEquity    = 0.0;    //Starting Equity
 double       CurrentEquityRisk = 0.0;    //Equity that will be risked per trade
 input double MaxLossPrc        = 0.02;   //Percent Risk Per Trade
 input double AtrLossMulti      = 2.5;    //ATR Loss Multiplier
+input bool   ApplyTakeProfit   = false;  //Apply Take Profit
 input double AtrProfitMulti    = 2.0;    //ATR Profit Multiplier
 
 //ATR Handle and Variables
@@ -260,7 +261,10 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     Message = "No existing positions";
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_ASK), Digits());
     StopLossPrice   = NormalizeDouble(Price - CurrentAtr*AtrLossMulti, Digits());
-    TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*AtrProfitMulti, Digits());
+    if(ApplyTakeProfit)
+    {
+      TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*AtrProfitMulti, Digits());
+    }
     Bias = "bull";
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "no positions")
@@ -269,7 +273,10 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     Message = "No existing positions";
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_BID), Digits());
     StopLossPrice   = NormalizeDouble(Price + CurrentAtr*AtrLossMulti, Digits());
+    if(ApplyTakeProfit)
+    {
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*AtrProfitMulti, Digits()); 
+    }
     Bias = "bear";
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "sell")
@@ -278,7 +285,10 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     Message         = CloseExistingPosition();
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_ASK), Digits());
     StopLossPrice   = NormalizeDouble(Price - CurrentAtr*AtrLossMulti, Digits());
+    if(ApplyTakeProfit)
+    {
     TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*AtrProfitMulti, Digits());
+    }
     Bias = "bull";
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "buy")
@@ -287,7 +297,10 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     Message         = CloseExistingPosition();
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_BID), Digits());
     StopLossPrice   = NormalizeDouble(Price + CurrentAtr*AtrLossMulti, Digits());
+    if(ApplyTakeProfit)
+    {
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*AtrProfitMulti, Digits()); 
+    }
     Bias = "bear";
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "buy")
