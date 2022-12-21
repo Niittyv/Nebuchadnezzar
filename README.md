@@ -7,7 +7,7 @@
 
 Nebuchadnezzar TrendFollowing strategy v1 properties:
 
-no take profits
-no trailing stop
-breakout signal from closing above/below previous candle closes
-ATR adjusted stop loss
+1. no take profits
+2. no trailing stop
+3. breakout signal from closing above/below previous candle closes
+4. ATR adjusted stop loss
