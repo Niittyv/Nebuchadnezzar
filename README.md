@@ -5,3 +5,9 @@
 4. () Implement MeanReversion. 
 5. (X) Add commissions to backtesting.
 
+Nebuchadnezzar TrendFollowing strategy v1 properties:
+
+no take profits
+no trailing stop
+breakout signal from closing above/below previous candle closes
+ATR adjusted stop loss
