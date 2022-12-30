@@ -46,8 +46,8 @@ input bool   TslCheck          = true;   //Use Trailing Stop Loss?
 input bool   RiskCompounding   = true;   //Use Compounded Risk Method?
 double       StartingEquity    = 0.0;    //Starting Equity
 double       CurrentEquityRisk = 0.0;    //Equity that will be risked per trade
-input double MaxLossPrc        = 0.02;   //Percent Risk Per Trade
-input double StopLossSize     = 0.1;      //Stop Loss Size. 0.xx for yen, 0.0xx for others (ten pips)
+input double MaxLossPrc        = 0.02;   //Percent Risk Per Trade (add one decimal for gold)
+input double StopLossSize     = 0.1;      //Stop Loss Size. 0.xx for yen, 0.0xx for non-yen (hundred pips)
 input bool   ApplyTakeProfit   = false;  //Apply Take Profit
 input double TakeProfitMuliplier = 1;     //Take Profit multiplier
 
