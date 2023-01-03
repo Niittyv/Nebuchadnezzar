@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                             v1.1meanreversion.mq5  |
+//|                                             v1.2meanreversion.mq5  |
 //|                                              Jasper Niittyvuopio |
 //|                                             https://www.mql5.com |
 //|                                                                  |
@@ -10,7 +10,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Jasper Niittyvuopio"
 #property link      "https://www.mql5.com"
-#property version   "1.01"
+#property version   "1.02"
 
 //Include Functions
 #include <Trade\Trade.mqh> //Include MQL trade object functions
@@ -23,6 +23,7 @@ input string             InpTradeComment = __FILE__;    //Optional comment for t
 
 //Global Variables
 int             TicksReceivedCount  = 0; //Counts the number of ticks from oninit function
+bool            IsNewCandle         = false;
 
 //Strategy specific settings
 
@@ -51,9 +52,11 @@ input double TakeProfitMuliplier = 1;     //Take Profit multiplier
 //ATR Handle and Variables
 int HandleAtr;
 input int AtrPeriod = 10; //ATR Period
+double CurrentAtr;
 
 //Store ticketnumbers
 ulong TicketNumber = 0;
+ulong NewTicket = 0;
 
 //Disable trading between certain hours and months
 input string StartTime="2:00:00"; //Market open
@@ -110,7 +113,7 @@ void OnTick()
       TicksReceivedCount++; 
 
       //Check for new candles for MeanReversion strategy
-      bool IsNewCandle = false;
+      IsNewCandle = false;
       if(TimeLastTickProcessed != iTime(Symbol(),Timeframe,0))
       {
         IsNewCandle = true;
@@ -140,14 +143,14 @@ void OnTick()
       LatestBidPrice = LatestPrice.bid; 
 
       //Money Management - ATR
-      double CurrentAtr = GetATRValue(HandleAtr); //Gets ATR value double using custom function - convert double to string as per symbol digits
+      CurrentAtr = GetATRValue(HandleAtr); //Gets ATR value double using custom function - convert double to string as per symbol digits
 
       //Compare latest price to previous highs and lows and open trade if breakout happens
       if(LatestBidPrice >= PreviousHigh)
       {
         //Open short position
         Print("ATR: ", CurrentAtr);
-        ulong NewTicket = ProcessTradeOpen(ORDER_TYPE_SELL,CurrentAtr);
+        NewTicket = ProcessTradeOpen(ORDER_TYPE_SELL,CurrentAtr);
         if(NewTicket != 0)
         {
           TicketNumber = NewTicket;
@@ -157,7 +160,7 @@ void OnTick()
       {
         //Open long position
         Print("ATR: ", CurrentAtr);
-        ulong NewTicket = ProcessTradeOpen(ORDER_TYPE_BUY,CurrentAtr);
+        NewTicket = ProcessTradeOpen(ORDER_TYPE_BUY,CurrentAtr);
         if(NewTicket != 0)
         {
           TicketNumber = NewTicket;
@@ -366,11 +369,11 @@ double OptimalLotSize(string CurrentSymbol, double EntryPrice, double StopLoss)
    return RiskLots;
 }
 
-
 //Finds existing trade with magic number
 string FindExistingPosition()
 {
-  for(int i=0; i<(int)PositionsTotal(); i++)
+  int i = PositionsTotal()-1;
+  while(i>=0)
   {
     if(PositionGetInteger(POSITION_MAGIC) == InpMagicNumber && PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY)
     {
@@ -380,21 +383,22 @@ string FindExistingPosition()
     {
       return("sell");
     }
+    i--;
   }
   return("no positions");
 }
 
-
-//Closes existing trade with magic number
+//Closes existing trades with magic number
 string CloseExistingPosition()
 {
-  for(int i=0; i<(int)PositionsTotal(); i++)
+  int i = PositionsTotal()-1;
+  while(i>=0)
   {
-    ulong Ticket = PositionGetTicket(i);
     if(PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
     {
-     Trade.PositionClose(Ticket);
+      Trade.PositionClose(PositionGetSymbol(i));
     }
+    i--;
   }
   return("positions closed");
 }
