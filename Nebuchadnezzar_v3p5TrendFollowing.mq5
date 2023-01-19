@@ -1,21 +1,20 @@
 //+------------------------------------------------------------------+
-//|                                            v4.2TrendFollowing.mq5|
+//|                                            v3.5TrendFollowing.mq5|
 //|                                              Jasper Niittyvuopio |
 //|                                             https://www.mql5.com |
 //|                                                                  |
 //| Changes being implemented (compared to previous version):        | 
 //|                                                                  |
-//| - Add to winners (applied)
+//| - Add to winners (REJECTED)
 //| - ATR stop loss
 //| - (optional) close trades during weekend,
-//|  no processing during weekend
-//| - DO NOT USE THIS VERSION UNTIL TRAILING STOP LOSS IS FIXED (goes
-//|   through all open positions)
+//|  no processing during weekend (APPLIED)
+//| - Programming logic updated to V4 standards (APPLIED)
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "Jasper Niittyvuopio"
 #property link      "https://www.mql5.com"
-#property version   "4.02"
+#property version   "3.05"
 
 //Include Functions
 #include <Trade\Trade.mqh> //Include MQL trade object functions
@@ -58,7 +57,6 @@ double CurrentAtr;
 //Store ticketnumbers
 ulong TicketNumber = 0;
 ulong NewTicket = 0;
-ulong ExistingTicket = 0;
 
 //Disable trading between certain hours and months
 input string StartTime="2:00:00"; //Market open
@@ -143,6 +141,12 @@ void OnTick()
           //Counts the number of ticks processed
           TicksProcessedCount++;
 
+          //Check if position is still open. If not open, return 0.
+          if (!PositionSelectByTicket(TicketNumber))
+          {
+            TicketNumber = 0;
+          }
+
           //Initiate String for indicatorMetrics Variable. This will reset variable each time OnTick function runs.
           IndicatorMetrics ="";  
           
@@ -179,12 +183,7 @@ void OnTick()
           //Adjust Open Positions - Trailing Stop Loss
           if(TslCheck == true)
           {
-            for(int i=0; i<(int)PositionsTotal(); i++)
-            {
-              ExistingTicket = PositionGetTicket(i);
-              AdjustTsl(ExistingTicket, CurrentAtr, AtrLossMulti);
-              ExistingTicket = 0;
-            }
+            AdjustTsl(TicketNumber, CurrentAtr, AtrLossMulti);
           }
         }
       }
@@ -214,7 +213,7 @@ void OnTick()
          "\n\r",
          TradesClosedMessage
          );
-  }
+}
 //+------------------------------------------------------------------+
 //| Custom function                                                  |
 //+------------------------------------------------------------------+
@@ -332,7 +331,6 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
       TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
     }
     Bias = "bull";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "no positions")
   {
@@ -345,7 +343,6 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
     }
     Bias = "bear";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "sell")
   {
@@ -360,7 +357,6 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
     }
     Bias = "bull";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "buy")
   {
@@ -375,29 +371,16 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
     }
     Bias = "bear";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "buy")
   {
-    //Add to winners (long)
-    Message = "Adding to winners";
-    Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_ASK), Digits());
-    StopLossPrice   = NormalizeDouble(Price - CurrentAtr*AtrLossMulti, Digits());
-    if(ApplyTakeProfit)
-    {
-      TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
-    }
+    //Do nothing
+    return(Ticket);
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "sell")
   {
-    //Add to winners (short)
-    Message = "Adding to winners";
-    Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_BID), Digits());
-    StopLossPrice   = NormalizeDouble(Price + CurrentAtr*AtrLossMulti, Digits());
-    if(ApplyTakeProfit)
-    {
-    TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
-    }
+    //Do nothing
+    return(Ticket);
   }
   else
   {
@@ -417,6 +400,8 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
 
   //Add in any error handling
   Print("Trade Processed For ", CurrentSymbol," OrderType ",OrderType, " Lot Size ", LotSize, " Ticket ", Ticket);
+
+  TicksProcessedCount = 0;
 
   return Ticket;
 }

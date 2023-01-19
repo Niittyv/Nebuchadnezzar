@@ -1,28 +1,21 @@
 //+------------------------------------------------------------------+
-//|                                            v4.2TrendFollowing.mq5|
+//|                                             v5TrendFollowing.mq5|
 //|                                              Jasper Niittyvuopio |
 //|                                             https://www.mql5.com |
 //|                                                                  |
-//| Changes being implemented (compared to previous version):        | 
-//|                                                                  |
-//| - Add to winners (applied)
-//| - ATR stop loss
-//| - (optional) close trades during weekend,
-//|  no processing during weekend
-//| - DO NOT USE THIS VERSION UNTIL TRAILING STOP LOSS IS FIXED (goes
-//|   through all open positions)
+//|  - Open position from wick breakout
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "Jasper Niittyvuopio"
 #property link      "https://www.mql5.com"
-#property version   "4.02"
+#property version   "5.00"
 
 //Include Functions
 #include <Trade\Trade.mqh> //Include MQL trade object functions
 CTrade   *Trade;           //Declaire Trade as pointer to CTrade class
 
 //Setup Variables
-input int                InpMagicNumber  = 1000000;     //Unique identifier for this expert advisor (use symbol identifiers)
+input int                InpMagicNumber  = 2000000;     //Unique identifier for this expert advisor (use symbol identifiers)
 input ENUM_APPLIED_PRICE InpAppliedPrice = PRICE_CLOSE; //Applied price for indicators
 input string             InpTradeComment = __FILE__;    //Optional comment for trades
 
@@ -32,13 +25,19 @@ bool            IsNewCandle         = false;
 
 //Strategy specific settings
 
-//TrendFollowing strategy
-input int       BufferCandles = 20; //Dungeon breakout period (TrendFollowing)
+//MeanReversion strategy
+input int       BufferCandles = 20; //Dungeon breakout period (MeanReversion)
 string          IndicatorMetrics    = "";
 int             TicksProcessedCount = 0; //Counts the number of ticks proceeded from oninit function based off candle opens only
 static datetime TimeLastTickProcessed;   //Stores the last time a tick was processed based off candle opens only
 ENUM_TIMEFRAMES Timeframe = Period(); //Strategy timeframe
 string           Bias = "no bias"; //Current bias?
+
+//Store values
+double PreviousHigh;
+double PreviousLow;
+static double LatestAskPrice;
+static double LatestBidPrice;
 
 //Risk Metrics
 input bool   TslCheck          = true;   //Use Trailing Stop Loss?
@@ -58,16 +57,15 @@ double CurrentAtr;
 //Store ticketnumbers
 ulong TicketNumber = 0;
 ulong NewTicket = 0;
-ulong ExistingTicket = 0;
 
 //Disable trading between certain hours and months
 input string StartTime="2:00:00"; //Market open
-input string EndTime="2:15:00"; //Market close
+input string EndTime="22:50:00"; //Market close
 input int TradeBanMonth1 = 0; //Trading disabled first month (1-12)
 input int TradeBanMonth2 = 0; //Trading disabled second month (1-12)
 input int TradeBanMonth3 = 0; //Trading disabled third month (1-12)
 input int TradeBanMonth4 = 0; //Trading disabled fourth month (1-12)
-input bool CloseTradesDuringVacation = false; //Close open trades when vacation starts?
+input bool CloseTradesDuringVacation = false; //Close open trade when vacation starts?
 input bool CloseTradesDuringWeekend = false; //Close open trades when weekend starts?
 string     WeekendCloseTime="22:50:00";
 string     TradesClosedMessage = "";
@@ -86,7 +84,7 @@ int OnInit()
 
   // Set up handle for ATR indicator on the initialisation of expert
   HandleAtr = iATR(Symbol(),Timeframe,AtrPeriod);
-  Print("Handle for TrendFollowing ATR /", Symbol()," / ", EnumToString(Timeframe),"successfully created");
+  Print("Handle for MeanRevertion ATR /", Symbol()," / ", EnumToString(Timeframe),"successfully created");
 
   return(INIT_SUCCEEDED);
   }
@@ -100,7 +98,7 @@ void OnDeinit(const int reason)
     Print("Handle released");
 
     delete(Trade);
-    Print("CTrade object destoyed");
+    Print("CTrade object destroyed");
   }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -129,7 +127,7 @@ void OnTick()
         //Counts the number of ticks received  
         TicksReceivedCount++; 
 
-        //Check for new candles for TrendFollowing strategy
+        //Check for new candles for MeanReversion strategy
         IsNewCandle = false;
         if(TimeLastTickProcessed != iTime(Symbol(),Timeframe,0))
         {
@@ -137,11 +135,17 @@ void OnTick()
           TimeLastTickProcessed=iTime(Symbol(),Timeframe,0);
         }
 
-        //If there is a new candle, process any trades
+        //If there is a new candle, update buffer
         if(IsNewCandle == true)
         {
           //Counts the number of ticks processed
           TicksProcessedCount++;
+
+          //Check if position is still open. If not open, return 0.
+          if (!PositionSelectByTicket(TicketNumber))
+          {
+            TicketNumber = 0;
+          }
 
           //Initiate String for indicatorMetrics Variable. This will reset variable each time OnTick function runs.
           IndicatorMetrics ="";  
@@ -150,46 +154,50 @@ void OnTick()
 
           //Money Management - ATR
           CurrentAtr = GetATRValue(HandleAtr); //Gets ATR value double using custom function - convert double to string as per symbol digits
-          StringConcatenate(IndicatorMetrics, IndicatorMetrics, " | ATR(TrendFollowing): ", CurrentAtr);
-
-          //Strategy Trigger - Dungeon Breakout (TrendFollowing)
-          string OpenSignalBreakout = GetTrendFollowingSignal();
-          StringConcatenate(IndicatorMetrics, IndicatorMetrics, " | Signal(TrendFollowing): ", OpenSignalBreakout);   
-
-          //Enter Trade
-          if(OpenSignalBreakout == "long")
-          {
-            //Open long position
-            NewTicket = ProcessTradeOpen(ORDER_TYPE_BUY, CurrentAtr);
-            if(NewTicket != 0)
-            {
-              TicketNumber = NewTicket;
-            }
-          }
-          else if(OpenSignalBreakout == "short")
-          {
-            //Open short position
-            NewTicket = ProcessTradeOpen(ORDER_TYPE_SELL, CurrentAtr);
-            if(NewTicket != 0)
-              {
-                TicketNumber = NewTicket;
-              }
-          }
 
           //Adjust Open Positions - Trailing Stop Loss
           if(TslCheck == true)
           {
-            for(int i=0; i<(int)PositionsTotal(); i++)
-            {
-              ExistingTicket = PositionGetTicket(i);
-              AdjustTsl(ExistingTicket, CurrentAtr, AtrLossMulti);
-              ExistingTicket = 0;
-            }
+            AdjustTsl(TicketNumber, CurrentAtr, AtrLossMulti);
+          }
+
+          //Update candle buffer & get previous high and low values
+          PreviousHigh = GetPreviousHigh();
+          PreviousLow = GetPreviousLow();
+        }
+
+        //Get latest price
+        MqlTick LatestPrice;
+        SymbolInfoTick(Symbol(), LatestPrice);
+        LatestAskPrice = LatestPrice.ask; 
+        LatestBidPrice = LatestPrice.bid; 
+
+        //Compare latest price to previous highs and lows and open trade if breakout happens
+        if(LatestBidPrice > PreviousHigh)
+        {
+          //Money Management - ATR
+          CurrentAtr = GetATRValue(HandleAtr); //Gets ATR value double using custom function - convert double to string as per symbol digits
+          //Open long position
+          NewTicket = ProcessTradeOpen(ORDER_TYPE_BUY,CurrentAtr);
+          if(NewTicket != 0)
+          {
+            TicketNumber = NewTicket;
+          }
+        }
+        else if(LatestAskPrice < PreviousLow)
+        {
+          //Money Management - ATR
+          CurrentAtr = GetATRValue(HandleAtr); //Gets ATR value double using custom function - convert double to string as per symbol digits
+          //Open short position
+          NewTicket = ProcessTradeOpen(ORDER_TYPE_SELL,CurrentAtr);
+          if(NewTicket != 0)
+          {
+            TicketNumber = NewTicket;
           }
         }
       }
     }
-  }
+  } 
   else if(CloseTradesDuringVacation)
   {
     TradesClosedMessage = CloseExistingPosition() + " -- Happy vacation near the palm trees!";
@@ -198,15 +206,17 @@ void OnTick()
   {
     TradesClosedMessage = "Happy vacation near the palm trees!";
   }
-
+   
   //Comment for user
    Comment("\n\rExpert_TrendFollowing: ", InpMagicNumber, "\n\r",
-         "MT5 Server Time: ", now, "\n\r",
+         "MT5 Server Time: ", TimeCurrent(), "\n\r",
          "Timeframe (TrendFollowing): ", EnumToString(Timeframe),"\n\r",
          "\n\r",
          "Ticks Received: ", TicksReceivedCount,"\n\r",
-         "Candles Processed: ", TicksProcessedCount,"\n\r",
-         "Bias: ", Bias,"\n\r",
+         "Ticks Processed (TrendFollowing): ", TicksProcessedCount,"\n\r",
+         "Dungeon High: ", PreviousHigh,"\n\r",
+         "Dungeon Low: ", PreviousLow,"\n\r",
+         "ATR Last Processed: ", CurrentAtr,"\n\r",
          "\n\r",
          "Symbols Traded: \n\r", 
          "\n\r",
@@ -243,65 +253,21 @@ double GetATRValue(int HandleAtr)
 }
 
 
-//Custom Function to get dungeon breakout (TrendFollowing) signals
-string GetTrendFollowingSignal()
+//Custom Function to get previous high value from buffer
+double GetPreviousHigh()
 {
-  //Check last closed candle color by comparing open and close prices
-  double CurrentClose = NormalizeDouble(iClose(Symbol(),Timeframe,1), 10);
-  double LastOpen = NormalizeDouble(iOpen(Symbol(),Timeframe,1), 10);
-  Print("last open: ", LastOpen);
-  Print("current close: ", CurrentClose);
-  string LastCandleColor = "";
+  int HighestIndex = iHighest(Symbol(),Timeframe,MODE_HIGH,BufferCandles,1);
+  double HighestPrevious = NormalizeDouble(iHigh(Symbol(),Timeframe,HighestIndex), 10);
+  return HighestPrevious;
+}
 
-  if(CurrentClose >= LastOpen)
-  {
-    LastCandleColor = "bull";
-  }
-  else
-  {
-    LastCandleColor = "bear";
-  }
 
-  //Check if breakout happened
-  if(LastCandleColor == "bull")
-  {
-    //Compare current candle close to previous candle close highs
-    int HighestIndex = iHighest(Symbol(),Timeframe,MODE_CLOSE,BufferCandles,2);
-    double HighestPrevious = NormalizeDouble(iClose(Symbol(),Timeframe,HighestIndex), 10);
-    Print("highest previous: ", HighestPrevious);
-    if(CurrentClose > HighestPrevious)
-    {
-      //GO LONG
-      return("long");
-    }
-    else
-    {
-      //Do nothing (return no signal)
-      return("no signal");
-    }
-  }
-  else if(LastCandleColor == "bear")
-  {
-    //Compare current candle close to previous candle close lows
-    int LowestIndex = iLowest(Symbol(),Timeframe,MODE_CLOSE,BufferCandles,2);
-    double LowestPrevious = NormalizeDouble(iClose(Symbol(),Timeframe,LowestIndex), 10);
-    Print("lowest previous: (ari säilyttää muuten marmorikuulia persereijässä)", LowestPrevious);
-    if(CurrentClose < LowestPrevious)
-    {
-      //GO SHORT
-      return("short");
-    }
-    else
-    {
-      //Do nothing (return no signal)
-      return("no signal");
-    }
-  }
-  else
-  {
-    //Function has failed
-    return("ERROR");
-  }
+//Custom Function to get previous low value from buffer
+double GetPreviousLow()
+{
+  int LowestIndex = iLowest(Symbol(),Timeframe,MODE_LOW,BufferCandles,1);
+  double LowestPrevious = NormalizeDouble(iLow(Symbol(),Timeframe,LowestIndex), 10);
+  return LowestPrevious;
 }
 
 
@@ -320,7 +286,7 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
   //Check for same type existing position
   string ExistingPosition = FindExistingPosition();
 
-  //Close existing orders or add to winners and calculate price and stop loss
+  //Close existing orders and calculate price and stop loss
   if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "no positions")
   {
     //BUY
@@ -331,8 +297,6 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     {
       TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
     }
-    Bias = "bull";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "no positions")
   {
@@ -344,60 +308,38 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
     {
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
     }
-    Bias = "bear";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "sell")
   {
     //CLOSE ORDERS AND BUY
     Message         = CloseExistingPosition();
-    string ExistingPosition2 = FindExistingPosition();
-    Print("Does position exist: ", ExistingPosition2);
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_ASK), Digits());
     StopLossPrice   = NormalizeDouble(Price - CurrentAtr*AtrLossMulti, Digits());
     if(ApplyTakeProfit)
     {
     TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
     }
-    Bias = "bull";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "buy")
   {
     //CLOSE ORDERS AND SELL
     Message         = CloseExistingPosition();
-    string ExistingPosition3 = FindExistingPosition();
-    Print("Does position exist: ", ExistingPosition3);
     Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_BID), Digits());
     StopLossPrice   = NormalizeDouble(Price + CurrentAtr*AtrLossMulti, Digits());
     if(ApplyTakeProfit)
     {
     TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
     }
-    Bias = "bear";
-    TicksProcessedCount = 0;
   }
   else if(OrderType == ORDER_TYPE_BUY && ExistingPosition == "buy")
   {
-    //Add to winners (long)
-    Message = "Adding to winners";
-    Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_ASK), Digits());
-    StopLossPrice   = NormalizeDouble(Price - CurrentAtr*AtrLossMulti, Digits());
-    if(ApplyTakeProfit)
-    {
-      TakeProfitPrice = NormalizeDouble(Price + CurrentAtr*TakeProfitMuliplier, Digits());
-    }
+    //Do nothing
+    return(Ticket);
   }
   else if(OrderType == ORDER_TYPE_SELL && ExistingPosition == "sell")
   {
-    //Add to winners (short)
-    Message = "Adding to winners";
-    Price           = NormalizeDouble(SymbolInfoDouble(CurrentSymbol, SYMBOL_BID), Digits());
-    StopLossPrice   = NormalizeDouble(Price + CurrentAtr*AtrLossMulti, Digits());
-    if(ApplyTakeProfit)
-    {
-    TakeProfitPrice = NormalizeDouble(Price - CurrentAtr*TakeProfitMuliplier, Digits()); 
-    }
+    //Do nothing
+    return(Ticket);
   }
   else
   {
@@ -417,6 +359,8 @@ ulong ProcessTradeOpen(ENUM_ORDER_TYPE OrderType, double CurrentAtr)
 
   //Add in any error handling
   Print("Trade Processed For ", CurrentSymbol," OrderType ",OrderType, " Lot Size ", LotSize, " Ticket ", Ticket);
+
+  TicksProcessedCount = 0;
 
   return Ticket;
 }
