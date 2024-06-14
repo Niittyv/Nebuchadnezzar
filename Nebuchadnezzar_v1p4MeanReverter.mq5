@@ -3,12 +3,6 @@
 //|                                              Jasper Niittyvuopio |
 //|                                             https://www.mql5.com |
 //|                                                                  |
-//|  - Bug fix. FindExistingPosition() with while-loop doesn't work when there are
-//|  multiple algos running concurrently. When there is an existing position generated
-//|  by another EA, this EA starts generating multiple orders. Also, the EA's communicate
-//|  with each other even if their magic numbers are different.
-//|  - The ticket number stays same for every duplicated glitched position. Meanreverter and trendfollower open positions with same ticket.
-//|  - Possible solution: start handling positions by PositionSelectByTicket(). Use existing ticketnumber to handle positions.
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "Jasper Niittyvuopio"
