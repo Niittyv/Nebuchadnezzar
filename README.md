@@ -9,7 +9,7 @@ There are two seperate algorithms trading two different strategies:
 
 2. The mean reverter algorithm trades rejections of the lows and highs of the formation of previous candles.
 
-Screenshot of configuaration:
+Screenshot of configuration:
 
 ![image](https://github.com/user-attachments/assets/8ada5d69-69bf-4a58-83d7-00eb8bc6a7e8)
 
