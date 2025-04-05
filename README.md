@@ -11,7 +11,7 @@ There are two seperate algorithms trading two different strategies:
 2. The mean reverter algorithm trades rejections of the lows and highs of the box formation of previous candles.
 ![image](https://github.com/user-attachments/assets/647c31bd-2da5-442b-a001-2340f6fa80b1)
 
-Screenshot of configuration:
+Screenshot of MetaTrader 5 configuration:
 
 ![image](https://github.com/user-attachments/assets/8ada5d69-69bf-4a58-83d7-00eb8bc6a7e8)
 
