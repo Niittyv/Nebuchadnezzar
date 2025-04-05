@@ -5,10 +5,10 @@ MQL5 programming language is very similar to C++. I implemented concurrent progr
 
 There are two seperate algorithms trading two different strategies:
 
-1. The trend follower algorithm trades breakouts of the formation of previous candles.
+1. The trend follower algorithm trades breakouts of the box formation of previous candles.
 ![image](https://github.com/user-attachments/assets/86cff7cb-cae7-4d22-be2f-b0020ac4efdd)
  
-2. The mean reverter algorithm trades rejections of the lows and highs of the formation of previous candles.
+2. The mean reverter algorithm trades rejections of the lows and highs of the box formation of previous candles.
 ![image](https://github.com/user-attachments/assets/647c31bd-2da5-442b-a001-2340f6fa80b1)
 
 Screenshot of configuration:
