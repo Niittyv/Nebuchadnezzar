@@ -17,5 +17,6 @@ Screenshot of MetaTrader 5 configuration:
 
 Let's say your backtesting results show you that July and August are bad months for trading. You can disable trading for up to four months every year. You can tell the EA to close all open trades when the disabled month begins by enabling "Close open trade when vacation starts?" option. 
 
+Screenshot of MetaTrader 5 chart:
 ![image](https://github.com/user-attachments/assets/fa6d2810-7641-47c7-95e6-0a6c33440914)
 
