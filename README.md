@@ -15,9 +15,7 @@ Screenshot of configuration:
 
 ![image](https://github.com/user-attachments/assets/8ada5d69-69bf-4a58-83d7-00eb8bc6a7e8)
 
-ATR Loss Multiplier is the size of a stop loss. 
-
-Let's say your backtesting results show you that July and August are bad months for trading. You can disable trading for up to four months every year. You can tell the EA to close all open trades when a disabled month begins (Close open trade when vacation starts?) 
+Let's say your backtesting results show you that July and August are bad months for trading. You can disable trading for up to four months every year. You can tell the EA to close all open trades when the disabled month begins by enabling "Close open trade when vacation starts?" option. 
 
 ![image](https://github.com/user-attachments/assets/fa6d2810-7641-47c7-95e6-0a6c33440914)
 
