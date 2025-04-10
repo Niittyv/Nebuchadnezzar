@@ -1,6 +1,6 @@
 # Nebuchadnezzar
 
-MQL5 programming language is very similar to C++. I implemented concurrent programming to create a trading robot that works in real-time market environment. The trading robot is fully functional on Metatrader 5 platform.
+This MQL5 trading robot works in real-time market environment. The trading robot is fully functional on Metatrader 5 platform.
 
 
 There are two seperate algorithms trading two different strategies:
